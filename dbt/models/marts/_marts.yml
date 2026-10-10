@@ -1,0 +1,271 @@
+version: 2
+
+# Todos os marts têm contrato enforced: o dbt recusa o build se o SQL devolver
+# uma coluna a mais, a menos ou com outro tipo. `meta.metricas` liga cada mart
+# às métricas de docs/contrato_de_metricas.md que ele sustenta.
+
+models:
+  - name: fct_pedidos
+    description: >
+      Um pedido por linha, todos os status. receita_bruta e receita_paga já
+      aplicam o contrato (zero em pedido não válido).
+    config:
+      contract: {enforced: true}
+      meta:
+        metricas: [pedidos_validos, receita_bruta, receita_paga, ticket_medio]
+    columns:
+      - name: order_id
+        data_type: varchar
+        constraints: [{type: not_null}, {type: primary_key}]
+        data_tests: [unique]
+      - name: customer_unique_id
+        data_type: varchar
+        constraints: [{type: not_null}]
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_clientes')
+                field: customer_unique_id
+      - name: status
+        data_type: varchar
+        constraints: [{type: not_null}]
+      - name: eh_valido
+        description: Status diferente de canceled/unavailable e pelo menos um item.
+        data_type: boolean
+        constraints: [{type: not_null}]
+      - name: comprado_em
+        data_type: timestamp
+        constraints: [{type: not_null}]
+      - name: aprovado_em
+        data_type: timestamp
+      - name: receita_paga_em
+        description: Aprovação; a compra quando a aprovação é nula.
+        data_type: timestamp
+        constraints: [{type: not_null}]
+      - name: n_itens
+        data_type: integer
+      - name: max_parcelas
+        data_type: integer
+      - name: valor_itens_frete
+        description: Itens + frete do pedido, sem olhar validade. Não é métrica.
+        data_type: decimal(18,2)
+      - name: valor_pago
+        description: Pagamentos do pedido, sem olhar validade. Não é métrica.
+        data_type: decimal(18,2)
+      - name: receita_bruta
+        data_type: decimal(18,2)
+        constraints: [{type: not_null}]
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+      - name: receita_paga
+        data_type: decimal(18,2)
+        constraints: [{type: not_null}]
+
+  - name: fct_itens
+    description: Um item de pedido por linha. receita_bruta é zero em pedido não válido.
+    config:
+      contract: {enforced: true}
+      meta:
+        metricas: [receita_bruta]
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_id, order_item_id]
+    columns:
+      - name: order_id
+        data_type: varchar
+        constraints: [{type: not_null}]
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fct_pedidos')
+                field: order_id
+      - name: order_item_id
+        data_type: integer
+        constraints: [{type: not_null}]
+      - name: seller_id
+        data_type: varchar
+        constraints: [{type: not_null}]
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_lojistas')
+                field: seller_id
+      - name: product_id
+        data_type: varchar
+      - name: categoria
+        data_type: varchar
+        constraints: [{type: not_null}]
+      - name: eh_valido
+        data_type: boolean
+        constraints: [{type: not_null}]
+      - name: comprado_em
+        data_type: timestamp
+        constraints: [{type: not_null}]
+      - name: preco
+        data_type: decimal(18,2)
+      - name: frete
+        data_type: decimal(18,2)
+      - name: receita_bruta
+        data_type: decimal(18,2)
+        constraints: [{type: not_null}]
+
+  - name: dim_clientes
+    description: Uma pessoa (customer_unique_id) por linha.
+    config:
+      contract: {enforced: true}
+      meta:
+        metricas: [clientes_novos]
+    columns:
+      - name: customer_unique_id
+        data_type: varchar
+        constraints: [{type: not_null}, {type: primary_key}]
+        data_tests: [unique]
+      - name: estado
+        data_type: varchar
+      - name: eh_cliente
+        description: Tem pelo menos um pedido válido.
+        data_type: boolean
+        constraints: [{type: not_null}]
+      - name: primeira_compra_em
+        description: Compra do primeiro pedido válido. Data da métrica clientes_novos.
+        data_type: timestamp
+      - name: pedidos_validos
+        data_type: bigint
+      - name: receita_bruta
+        data_type: decimal(18,2)
+
+  - name: dim_leads
+    description: Um lead qualificado por linha.
+    config:
+      contract: {enforced: true}
+      meta:
+        metricas: [leads]
+    columns:
+      - name: mql_id
+        data_type: varchar
+        constraints: [{type: not_null}, {type: primary_key}]
+        data_tests: [unique]
+      - name: primeiro_contato_em
+        data_type: date
+        constraints: [{type: not_null}]
+      - name: canal
+        data_type: varchar
+        constraints: [{type: not_null}]
+      - name: landing_page_id
+        data_type: varchar
+      - name: virou_contrato
+        data_type: boolean
+        constraints: [{type: not_null}]
+      - name: seller_id
+        data_type: varchar
+
+  - name: dim_lojistas
+    description: >
+      Um lojista por linha: os que venderam e os que só têm contrato.
+    config:
+      contract: {enforced: true}
+    columns:
+      - name: seller_id
+        data_type: varchar
+        constraints: [{type: not_null}, {type: primary_key}]
+        data_tests: [unique]
+      - name: tem_contrato
+        data_type: boolean
+        constraints: [{type: not_null}]
+      - name: mql_id
+        data_type: varchar
+      - name: canal
+        data_type: varchar
+      - name: segmento
+        data_type: varchar
+      - name: tipo_lead
+        data_type: varchar
+      - name: contratado_em
+        data_type: timestamp
+      - name: primeira_venda_em
+        data_type: timestamp
+      - name: pedidos_validos
+        data_type: bigint
+      - name: receita_bruta
+        data_type: decimal(18,2)
+      - name: estado
+        data_type: varchar
+      - name: cidade
+        data_type: varchar
+
+  - name: fct_jornada_lojista
+    description: >
+      Um contrato por linha: lead, contrato, primeira venda válida e receita.
+      Liga o funil de marketing às vendas reais.
+    config:
+      contract: {enforced: true}
+      meta:
+        metricas: [lojistas_contratados, lojistas_ativados]
+    data_tests:
+      - dbt_utils.equal_rowcount:
+          arguments:
+            compare_model: ref('stg_olist__closed_deals')
+    columns:
+      - name: mql_id
+        data_type: varchar
+        constraints: [{type: not_null}, {type: primary_key}]
+        data_tests:
+          - unique
+          - relationships:
+              arguments:
+                to: ref('dim_leads')
+                field: mql_id
+      - name: seller_id
+        data_type: varchar
+        constraints: [{type: not_null}]
+        data_tests: [unique]
+      - name: canal
+        data_type: varchar
+        constraints: [{type: not_null}]
+      - name: segmento
+        data_type: varchar
+      - name: tipo_lead
+        data_type: varchar
+      - name: primeiro_contato_em
+        data_type: date
+        constraints: [{type: not_null}]
+      - name: contratado_em
+        data_type: timestamp
+        constraints: [{type: not_null}]
+      - name: primeira_venda_em
+        description: Compra do primeiro pedido válido. Nula se nunca vendeu.
+        data_type: timestamp
+      - name: dias_contato_ate_contrato
+        data_type: integer
+      - name: dias_contrato_ate_primeira_venda
+        data_type: integer
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              arguments:
+                min_value: 0
+                row_condition: "dias_contrato_ate_primeira_venda is not null"
+      - name: dias_observados
+        description: Dias entre o contrato e fim_observacao (zero se depois).
+        data_type: integer
+      - name: foi_ativado
+        data_type: boolean
+        constraints: [{type: not_null}]
+      - name: observado_90d
+        data_type: boolean
+        constraints: [{type: not_null}]
+      - name: ativado_em_90d
+        data_type: boolean
+        constraints: [{type: not_null}]
+      - name: observado_12m
+        data_type: boolean
+        constraints: [{type: not_null}]
+      - name: pedidos_validos
+        data_type: bigint
+      - name: receita_bruta_acumulada
+        data_type: decimal(18,2)
+      - name: receita_bruta_12m
+        description: Receita bruta nos 365 dias após o contrato.
+        data_type: decimal(18,2)
