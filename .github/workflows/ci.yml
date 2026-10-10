@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Instala dependências
+        run: uv sync --locked
+
+      - name: Lint Python
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Testes Python
+        run: uv run pytest -q
+
+      # A licença da Olist não permite redistribuir o dado, então a CI roda
+      # o pipeline inteiro sobre a amostra sintética com anomalias plantadas.
+      - name: Pipeline na amostra (carga, auditoria, dbt build)
+        run: uv run nqb --amostra tudo
+
+      - name: Lint SQL
+        run: uv run sqlfluff lint dbt/models
