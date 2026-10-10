@@ -1,0 +1,36 @@
+version: 2
+
+models:
+  - name: stg_olist__sellers
+    description: Lojistas com pelo menos um item vendido.
+    columns:
+      - name: seller_id
+        data_tests: [unique, not_null]
+
+  - name: stg_olist__products
+    description: Um produto por linha.
+    columns:
+      - name: product_id
+        data_tests: [unique, not_null]
+
+  - name: stg_olist__product_category_translation
+    description: De-para do nome da categoria em português para inglês.
+    columns:
+      - name: category_name
+        data_tests: [unique, not_null]
+
+  - name: stg_olist__order_reviews
+    description: >
+      Uma avaliação por linha. review_id sozinho não é único: a mesma
+      avaliação aparece em mais de um pedido (814 casos). A chave é o par.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [review_id, order_id]
+    columns:
+      - name: review_score
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5]
+                quote: false
