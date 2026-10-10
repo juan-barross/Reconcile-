@@ -32,3 +32,12 @@ def carregar() -> None:
     for c in _carregar():
         tabela.add_row(c.tabela, f"{c.linhas:,}".replace(",", "."))
     console.print(tabela)
+
+
+@app.command()
+def auditar() -> None:
+    """Roda as checagens da camada raw e grava docs/auditoria.md."""
+    from ingest.auditoria import auditar as _auditar
+
+    saida = _auditar()
+    console.print(f"[green]Auditoria em {saida}[/]")
