@@ -5,6 +5,8 @@ nqb --amostra tudo    # amostra sintética, sem rede, em segundos
 """
 
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 import typer
@@ -73,15 +75,22 @@ def auditar(ctx: typer.Context) -> None:
     console.print(f"[green]Auditoria em {_auditar(c.db_path, saida)}[/]")
 
 
-def _dbt(c: Caminhos, *args: str) -> None:
-    from dbt.cli.main import dbtRunner
+def rodar_dbt(db_path: Path, *args: str) -> bool:
+    """Roda o dbt num subprocesso apontando para db_path.
 
-    os.environ["NQB_DB_PATH"] = str(c.db_path.resolve())
+    Subprocesso, e não dbtRunner, porque o dbt-duckdb deixa a conexão com o
+    arquivo aberta no processo, e a leitura seguinte (read_only) falharia.
+    """
+    env = {**os.environ, "NQB_DB_PATH": str(db_path.resolve())}
     comum = ["--project-dir", str(DBT_DIR), "--profiles-dir", str(DBT_DIR)]
+    dbt_cli = [sys.executable, "-c", "from dbt.cli.main import cli; cli()"]
     if not (DBT_DIR / "dbt_packages").exists():
-        dbtRunner().invoke(["deps", *comum])
-    resultado = dbtRunner().invoke([*args, *comum])
-    if not resultado.success:
+        subprocess.run([*dbt_cli, "deps", *comum], env=env, check=True)
+    return subprocess.run([*dbt_cli, *args, *comum], env=env).returncode == 0
+
+
+def _dbt(c: Caminhos, *args: str) -> None:
+    if not rodar_dbt(c.db_path, *args):
         console.print(f"[red]dbt {' '.join(args)} falhou[/]")
         raise typer.Exit(1)
 
@@ -92,9 +101,27 @@ def dbt(ctx: typer.Context) -> None:
     _dbt(ctx.obj, "build")
 
 
+MES_PADRAO = "2018-03"
+
+
+@app.command()
+def reuniao(
+    ctx: typer.Context,
+    mes: str = typer.Option(MES_PADRAO, help="Mês da pauta, no formato AAAA-MM."),
+) -> None:
+    """Roda a consulta de cada área e gera a página da reunião, com as pontes."""
+    from ingest.reuniao import gerar
+
+    c: Caminhos = ctx.obj
+    saida = c.base / "a_reuniao.md" if c.amostra else Path("docs/a_reuniao.md")
+    console.print(f"[green]Reunião em {gerar(c.db_path, saida, mes)}[/]")
+
+
 @app.command()
 def tudo(ctx: typer.Context) -> None:
-    """Baixa, carrega, audita e roda o dbt, nessa ordem."""
+    """Baixa, carrega, audita, roda o dbt e gera a reunião, nessa ordem."""
     for passo in (baixar, carregar, auditar, dbt):
         console.rule(passo.__name__)
         passo(ctx)
+    console.rule("reuniao")
+    reuniao(ctx, mes=MES_PADRAO)
