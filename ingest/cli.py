@@ -19,3 +19,16 @@ def baixar() -> None:
 
     arquivos = _baixar()
     console.print(f"[green]{len(arquivos)} CSVs em {arquivos[0].parent}[/]")
+
+
+@app.command()
+def carregar() -> None:
+    """Carrega os CSVs no esquema raw do DuckDB, como texto."""
+    from rich.table import Table
+
+    from ingest.carregar import carregar as _carregar
+
+    tabela = Table("tabela raw", "linhas", title="Carga")
+    for c in _carregar():
+        tabela.add_row(c.tabela, f"{c.linhas:,}".replace(",", "."))
+    console.print(tabela)
