@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: olist
+    description: >
+      CSVs da Olist carregados como texto por `nqb carregar`. Nada é
+      interpretado aqui; tipos e nomes ficam no staging.
+    schema: raw
+    tables:
+      - name: orders
+        description: Um pedido por linha, com status e as quatro datas do ciclo.
+      - name: order_items
+        description: Um item de pedido por linha (pedido, número do item).
+      - name: order_payments
+        description: Um pagamento por linha; um pedido pode ter vários.
+      - name: customers
+        description: >
+          Um customer_id por pedido. A pessoa é customer_unique_id.
+      - name: sellers
+        description: Lojistas que aparecem em pelo menos um item vendido.
+      - name: products
+      - name: order_reviews
+      - name: product_category_translation
+      - name: geolocation
+      - name: marketing_qualified_leads
+        description: Leads qualificados pelo marketing, jun/2017 a mai/2018.
+      - name: closed_deals
+        description: Contratos fechados pelo time de vendas, um por lead.
