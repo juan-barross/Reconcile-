@@ -262,5 +262,5 @@ def auditar(db_path: Path = DB_PATH, saida: Path = Path("docs/auditoria.md")) ->
     with duckdb.connect(str(db_path), read_only=True) as con:
         linhas = linhas_por_tabela(con)
     saida.parent.mkdir(parents=True, exist_ok=True)
-    saida.write_text(para_markdown(resultados, linhas), encoding="utf-8")
+    saida.write_text(para_markdown(resultados, linhas), encoding="utf-8", newline="\n")
     return saida
