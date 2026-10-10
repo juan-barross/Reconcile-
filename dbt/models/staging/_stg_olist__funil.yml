@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: stg_olist__marketing_qualified_leads
+    description: Um lead qualificado (MQL) por linha.
+    columns:
+      - name: mql_id
+        data_tests: [unique, not_null]
+      - name: first_contact_date
+        description: Data do primeiro contato. É a data que o marketing usa.
+        data_tests: [not_null]
+      - name: origin
+        description: >
+          Canal de origem. Vem nulo em 60 leads e como 'unknown' em 1.099;
+          a padronização fica no intermediate.
+
+  - name: stg_olist__closed_deals
+    description: Um contrato fechado por linha; cada lead fecha no máximo uma vez.
+    columns:
+      - name: mql_id
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_olist__marketing_qualified_leads')
+                field: mql_id
+      - name: seller_id
+        description: >
+          Lojista contratado. Liga o funil às vendas, mas só existe em
+          stg_olist__sellers se o lojista vendeu pelo menos uma vez.
+        data_tests: [unique, not_null]
+      - name: won_at
+        description: Data de fechamento do contrato. É a data que vendas usa.
+        data_tests: [not_null]
