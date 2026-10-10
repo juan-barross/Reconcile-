@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: int_pedidos__valores
+    description: >
+      Um pedido por linha, com itens e pagamentos agregados antes do join e a
+      marca de pedido válido do contrato de métricas.
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+      - name: customer_unique_id
+        data_tests: [not_null]
+      - name: receita_paga_em
+        data_tests: [not_null]
+      - name: eh_valido
+        data_tests: [not_null]
+
+  - name: int_itens__enriquecidos
+    description: Item com data e validade do pedido e categoria em inglês.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_id, order_item_id]
+      - dbt_utils.equal_rowcount:
+          arguments:
+            compare_model: ref('stg_olist__order_items')
+    columns:
+      - name: categoria
+        data_tests: [not_null]
+
+  - name: int_leads__canal
+    columns:
+      - name: mql_id
+        data_tests: [unique, not_null]
+      - name: canal
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [organic_search, paid_search, social, unknown, direct_traffic,
+                         email, referral, other, display, other_publicities]
+
+  - name: int_lojistas__vendas
+    description: Primeira venda e receita de cada lojista, só com pedidos válidos.
+    columns:
+      - name: seller_id
+        data_tests: [unique, not_null]
+      - name: primeira_venda_em
+        data_tests: [not_null]
