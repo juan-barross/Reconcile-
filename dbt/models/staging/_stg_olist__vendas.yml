@@ -1,0 +1,96 @@
+version: 2
+
+models:
+  - name: stg_olist__orders
+    description: Um pedido por linha. Tipos aplicados; nenhum filtro de status.
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+      - name: customer_id
+        description: Identificador do cliente neste pedido. Muda a cada pedido.
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_olist__customers')
+                field: customer_id
+      - name: order_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [created, approved, invoiced, processing, shipped,
+                         delivered, unavailable, canceled]
+      - name: purchased_at
+        data_tests: [not_null]
+      - name: approved_at
+        description: Nulo quando o pagamento não foi aprovado (cancelados, por exemplo).
+
+  - name: stg_olist__order_items
+    description: Um item por linha. O pedido tem de 1 a 21 itens.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_id, order_item_id]
+    columns:
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_olist__orders')
+                field: order_id
+      - name: seller_id
+        data_tests: [not_null]
+      - name: price
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: false
+      - name: freight_value
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+  - name: stg_olist__order_payments
+    description: >
+      Um pagamento por linha. Um pedido pode ter vários (cartão + voucher, por
+      exemplo). Somar sem agregar antes multiplica linhas ao juntar com itens.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns: [order_id, payment_sequential]
+    columns:
+      - name: order_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_olist__orders')
+                field: order_id
+      - name: payment_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [credit_card, boleto, voucher, debit_card, not_defined]
+      - name: payment_value
+        data_tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+  - name: stg_olist__customers
+    description: >
+      Um customer_id por linha. A mesma pessoa (customer_unique_id) aparece
+      em várias linhas se fez vários pedidos.
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+      - name: customer_unique_id
+        description: A pessoa. É esta coluna que conta clientes.
+        data_tests: [not_null]
