@@ -10,6 +10,26 @@ DB_PATH = DATA_DIR / "olist.duckdb"
 
 
 @dataclass(frozen=True)
+class Caminhos:
+    """Onde ficam os CSVs e o banco. A amostra sintética mora em data/amostra."""
+
+    base: Path
+    amostra: bool
+
+    @property
+    def csv_dir(self) -> Path:
+        return self.base / "csv"
+
+    @property
+    def db_path(self) -> Path:
+        return self.base / "olist.duckdb"
+
+
+def caminhos(amostra: bool = False) -> Caminhos:
+    return Caminhos(DATA_DIR / "amostra" if amostra else DATA_DIR, amostra)
+
+
+@dataclass(frozen=True)
 class Fonte:
     dataset: str  # handle no Kaggle
     arquivo: str  # nome do CSV dentro do dataset
