@@ -33,4 +33,4 @@ jobs:
         run: uv run nqb --amostra tudo
 
       - name: Lint SQL
-        run: uv run sqlfluff lint dbt/models
+        run: uv run sqlfluff lint dbt/models departamentos
